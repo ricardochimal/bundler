@@ -119,22 +119,17 @@ module Bundler
     def exec(*)
       ARGV.delete('exec')
 
-      # Set PATH
-      paths = (ENV['PATH'] || "").split(File::PATH_SEPARATOR)
-      paths.unshift "#{Bundler.bundle_path}/bin"
-      ENV["PATH"] = paths.uniq.join(File::PATH_SEPARATOR)
-
-      # Set BUNDLE_GEMFILE
-      ENV['BUNDLE_GEMFILE'] = Bundler::SharedHelpers.default_gemfile.to_s
-
-      # Set RUBYOPT
-      rubyopt = [ENV["RUBYOPT"]].compact
-      rubyopt.unshift "-rbundler/setup"
-      rubyopt.unshift "-I#{File.expand_path('../..', __FILE__)}"
-      ENV["RUBYOPT"] = rubyopt.join(' ')
+      env.each do |k, v|
+        ENV[k] = v
+      end
 
       # Run
       Kernel.exec *ARGV
+    end
+
+    desc "bashenv", "bash environment variables to be in context of the bundle"
+    def bashenv
+      puts env.map { |k,v| "export #{k}=\"#{v}\"" }.join(';')
     end
 
     desc "version", "Prints the bundler's version information"
@@ -144,6 +139,20 @@ module Bundler
     map %w(-v --version) => :version
 
   private
+    def env
+      paths = (ENV['PATH'] || "").split(File::PATH_SEPARATOR)
+      paths.unshift "#{Bundler.bundle_path}/bin"
+      path = paths.uniq.join(File::PATH_SEPARATOR)
+
+      bundle_gemfile = Bundler::SharedHelpers.default_gemfile.to_s
+
+      rubyopt = [ENV["RUBYOPT"]].compact
+      rubyopt.unshift "-rbundler/setup"
+      rubyopt.unshift "-I#{File.expand_path('../..', __FILE__)}"
+      rubyopt = rubyopt.join(' ')
+
+      { 'PATH' => path, 'BUNDLE_GEMFILE' => bundle_gemfile, 'RUBYOPT' => rubyopt }
+    end
 
     def locked?
       File.exist?("#{Bundler.root}/Gemfile.lock") || File.exist?("#{Bundler.root}/.bundle/environment.rb")
